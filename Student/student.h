@@ -1,0 +1,742 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <mysql.h>
+
+
+
+MYSQL* conn;//mysql 链接
+MYSQL_RES* res;//mysql 记录集
+MYSQL_ROW row;//字符串数组，mysql 记录行
+
+
+//登录使用的结构体
+struct Login
+{
+	char name[24];
+	char password[20];
+}login;
+
+#define MAX_BUF_SIZE 1024 //缓冲区最大字节数
+
+const char* host_name = "39.106.76.148";		//mysql服务器的IP
+const char* user_name = "root";				//用户名
+const char* user_password = "123";		///密码		需要改为自己的密码
+const char* server_name = "student";			///数据库名	需要改为自己的数据库名
+const unsigned short host_port = 3306;			//服务器端口
+
+int iNum_rows = 0;//mysql语句执行结果返回行数赋初值
+char sql[MAX_BUF_SIZE];
+char Time[MAX_BUF_SIZE];
+
+//操作使用的结构体
+struct Operation
+{
+	char tables[24];
+	char name[24];
+	char passwd[20];
+	char role[24];
+	char remark[20];
+}ope;
+
+
+//打印错误信息
+void print_mysql_error(const char* msg)
+{
+	if (msg)
+		printf("%s: %s\n", msg, mysql_error(conn));
+	else
+		puts(mysql_error(conn));
+}
+
+//执行sql语句，成功返回0，失败返回-1
+int executesql(const char* sql)
+{
+	//
+	if (mysql_real_query(conn, sql, strlen(sql)))
+		return -1;
+	return 0;
+}
+
+//初始化链接
+int init_mysql()
+{
+	//init the database connection
+	conn = mysql_init(NULL);
+	//connection the database
+	if (!mysql_real_connect(conn, host_name, user_name, user_password, server_name, host_port, NULL, 0))
+		return -1;//链接失败
+	//检查是否可以使用
+	if (executesql("set names utf8"))
+		return -1;
+	return 0;//返回成功
+}
+//选择数据库，没有的时候创建
+void create_database()
+{
+	sprintf(sql, "use student");
+	if (executesql(sql) == -1)
+	{
+		puts("create database");
+		executesql("create database student;");
+		print_mysql_error(NULL);
+		puts("choice database");
+		executesql("use student;");
+		print_mysql_error(NULL);
+		puts("!!!Initialize the success!!!");
+	}
+	else
+	{
+		executesql("use student;");
+		print_mysql_error(NULL);
+	}
+}
+
+//查看表格完整性
+void create_table()
+{
+	//users表的检查与创建
+	sprintf(sql, "show tables;");
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows == 0)
+	{
+		puts("create users table");
+		executesql("create table users(id_ smallint unsigned primary key auto_increment,name_ varchar(24) not null unique,password_ char(20) not null,create_time_ datetime not null,creator_id_ smallint unsigned,remark_ varchar(200),foreign key(creator_id_) references users(id_));");
+		puts("create roles table");
+		executesql("create table roles(id_ smallint unsigned primary key auto_increment,name_ varchar(24) not null unique,remark_ varchar(200));");
+		puts("create authoritys table");
+		executesql("create table authoritys(id_ smallint unsigned primary key auto_increment,name_ varchar(24) not null unique,remark_ varchar(200));");
+		puts("create roleAuthority table");
+		executesql("create table roleAuthority(role_id_ smallint unsigned,authority_id_ smallint unsigned,primary key(role_id_,authority_id_),foreign key(role_id_ ) references roles(id_ ),foreign key(authority_id_) references authoritys(id_));");
+		puts("create userRole table");
+		executesql("create table userRole(user_id_ smallint unsigned,role_id_ smallint unsigned,primary key(user_id_,role_id_),foreign key(user_id_) references users(id_),foreign key(role_id_ ) references roles(id_));");
+	}
+	mysql_free_result(res); // 释放结果集
+}
+
+//初始化管理员账户
+void init_Administrtor()
+{
+	//查询users表
+	sprintf(sql, "select * from users where id_='1' and name_='root';");//管理员后台用户
+	executesql(sql);
+	//sprintf(sql, "select * from users where id_='2' and name_='student';");//前台学生用户
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows == 0)
+	{
+		puts("Init Administrtor User");
+		//插入管理员用户
+		sprintf(sql, "insert into users values(1,'root','root','2017-08-18 12:21:11',1,'administrtor');");
+		executesql(sql);
+	}
+	mysql_free_result(res); // 释放结果集
+	//查询roles表职能
+	sprintf(sql, "select * from roles;");
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows < 3)
+	{
+		puts("Init System Role");
+		//插入系统角色
+		sprintf(sql, "insert into roles values(1,'ADMINISTRTOR','administrtor');");
+		executesql(sql);
+		sprintf(sql, "insert into roles values(2,'USER','user');");
+		executesql(sql);
+		sprintf(sql, "insert into roles values(3,'OTHER','other');");
+		executesql(sql);
+	}
+	mysql_free_result(res); // 释放结果集
+	//查询authoritys表权力
+	sprintf(sql, "select * from authoritys;");
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows < 3)
+	{
+		puts("Init System Authority");
+		//插入系统权限
+		sprintf(sql, "insert into authoritys values(1,'QUERY','query');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(2,'ADD','addmsg');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(3,'ADD&QUERY','query and addmsg');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(4,'DEL&ALT','delete and alter');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(5,'QUERY&DEL&ALT','query and delete and alter');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(6,'ADD&DEL&ALT','addmsg and delete and alter');");
+		executesql(sql);
+		sprintf(sql, "insert into authoritys values(7,'QUERY&ADD&DEL&ALT','query and addmsg and delete and alter');");
+		executesql(sql);
+	}
+	mysql_free_result(res); // 释放结果集
+	//查询roleAuthority表角色权限
+	sprintf(sql, "select * from roleAuthority;");
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows < 3)
+	{
+		puts("Init RoleAuthority");
+		//插入角色权限
+		sprintf(sql, "insert into roleAuthority values(1,7);");
+		executesql(sql);
+		sprintf(sql, "insert into roleAuthority values(2,3);");
+		executesql(sql);
+		sprintf(sql, "insert into roleAuthority values(3,1);");
+		executesql(sql);
+	}
+	mysql_free_result(res); // 释放结果集
+	//查询userRole表角色值
+	sprintf(sql, "select * from userRole where user_id_='1' and role_id_='1';");
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	if (iNum_rows == 0)
+	{
+		puts("Init User Role");
+		//插入管理员用户
+		sprintf(sql, "insert into userRole values(1,1);");
+		executesql(sql);
+	}
+	mysql_free_result(res); // 释放结果集
+}
+
+//用户登录
+void user_login()
+{
+	puts("Init success! Please press any key to continue");
+	while (1)
+	{
+		while ((getchar()) != '\n');
+		system("clear");
+		puts("!!!Login System!!!");
+		//输入账户和密码
+		printf("Name："); scanf("%s", login.name);
+		printf("Passwd："); scanf("%s", login.password);
+		//在数据库中查询，可查询到信息即表明users表中有账号信息，登录成功
+		sprintf(sql, "select * from users where name_='%s' and password_='%s';", login.name, login.password);
+		executesql(sql);
+		res = mysql_store_result(conn);
+		iNum_rows = mysql_num_rows(res);
+		if (iNum_rows != 0)
+		{
+			puts("!!! Login Success !!! ");
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		}
+		else
+		{
+			puts("!!!Login Failed!!! Check name or password!");
+			while ((getchar()) != '\n');
+		}
+	}
+	mysql_free_result(res); // 释放结果集
+}
+
+//查询函数
+void query_msg()
+{
+	while (1) {
+		int i, j;
+		int choice;
+		system("clear");
+		puts("!!!    Query_msg    !!! ");
+		puts("!!!   choice table  !!! ");
+		puts("!!! 1:    users     !!! ");
+		puts("!!! 2:    roles     !!! ");
+		puts("!!! 3:    userRole  !!! ");
+		puts("!!! 0:    Return    !!! ");
+		scanf("%d", &choice);
+		switch (choice)
+		{
+		case 1:
+			sprintf(ope.tables, "users");
+			system("clear");
+			puts("!!!   enter name  !!! ");
+			printf("Name："); scanf("%s", ope.name);
+			//在指定表中查询用户名相关信息
+			sprintf(sql, "select * from %s where name_='%s';", ope.tables, ope.name);
+			executesql(sql);
+			res = mysql_store_result(conn);
+			iNum_rows = mysql_num_rows(res); // 得到记录的行数
+			system("clear");
+			if (iNum_rows == 0)
+				puts("No such person!");
+			else
+			{
+				int iNum_fields = mysql_num_fields(res); // 得到记录的列数
+				puts("id_  | name_ |password_| create_time_     |creator_id_ | remark_   ");
+				while ((row = mysql_fetch_row(res)))
+					printf("%s\t%s\t%s\t%s\t%s\t%s\n", row[0], row[1], row[2], row[3], row[4], row[5]);
+			}
+			mysql_free_result(res);
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		case 2:
+			sprintf(ope.tables, "roles");
+			system("clear");
+			//查询角色表
+			sprintf(sql, "select * from %s;", ope.tables);
+			executesql(sql);
+			res = mysql_store_result(conn);
+			iNum_rows = mysql_num_rows(res); // 得到记录的行数
+			system("clear");
+			if (iNum_rows == 0)
+				puts("No such person!");
+			else
+			{
+				int iNum_fields = mysql_num_fields(res); // 得到记录的列数
+				puts(" id_  | name_         | remark_      ");
+				while ((row = mysql_fetch_row(res)))
+					printf("%s\t%s\t\t%s\n", row[0], row[1], row[2]);
+			}
+			mysql_free_result(res);
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		case 3:
+			sprintf(ope.tables, "userRole");
+			system("clear");
+			//查询用户角色表
+			sprintf(sql, "select * from %s;", ope.tables);
+			executesql(sql);
+			res = mysql_store_result(conn);
+			iNum_rows = mysql_num_rows(res); // 得到记录的行数
+			system("clear");
+			if (iNum_rows == 0)
+				puts("No such person!");
+			else
+			{
+				int iNum_fields = mysql_num_fields(res); // 得到记录的列数
+				puts(" user_id_ | role_id_ ");
+				while ((row = mysql_fetch_row(res)))
+					printf("\t%s\t%s\n", row[0], row[1]);
+			}
+			mysql_free_result(res);
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		case 0:
+			return;
+		default:
+			puts("!!! enter right choice !!! ");
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		}
+	}
+}
+//权限判定函数
+int judge(int authority)
+{
+	int auth = 0;
+	//通过当前登录的用户名字获取用户id
+	sprintf(sql, "select id_ from users where name_='%s';", login.name);
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	int iNum_fields = mysql_num_fields(res);
+	while ((row = mysql_fetch_row(res))) {
+		//通过当前登录用户的id查询这个用户的角色id
+		sprintf(sql, "select role_id_ from userRole where user_id_='%s';", row[0]);
+	}
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	iNum_fields = mysql_num_fields(res);
+	while ((row = mysql_fetch_row(res))) {
+		//通过当前用户的角色id查询该用户的权限id
+		sprintf(sql, "select authority_id_ from roleAuthority where role_id_='%s';", row[0]);
+	}
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	iNum_fields = mysql_num_fields(res);
+	while ((row = mysql_fetch_row(res))) {
+		//通过当前用户的权限id查询权限级别
+		sprintf(sql, "select name_ from authoritys where id_='%s';", row[0]);
+	}
+	executesql(sql);
+	res = mysql_store_result(conn);
+	iNum_rows = mysql_num_rows(res);
+	iNum_fields = mysql_num_fields(res);
+	while ((row = mysql_fetch_row(res))) {
+		if (strcmp(g_row[0], "QUERY") == 0)
+			auth = 1;
+		if (strcmp(g_row[0], "ADD") == 0)
+			auth = 2;
+		if (strcmp(g_row[0], "ADD&QUERY") == 0)
+			auth = 3;
+		if (strcmp(g_row[0], "DEL&ALT") == 0)
+			auth = 4;
+		if (strcmp(g_row[0], "QUERY&DEL&ALT") == 0)
+			auth = 5;
+		if (strcmp(g_row[0], "ADD&DEL&ALT") == 0)
+			auth = 6;
+		if (strcmp(g_row[0], "QUERY&ADD&DEL&ALT") == 0)
+			  auth = 7;
+		if (auth >= 4)
+			flag = 1;//管理员权限开关
+		//判断该用户权限级别能否执行将要进行的操作
+		if (auth < authority)
+		{
+			mysql_free_result(g_res); // 释放结果集
+			return 0;
+		}
+		else
+		{
+			mysql_free_result(g_res); // 释放结果集
+			return 1;
+		}
+	}
+}
+//添加函数
+void add_msg()
+{
+	int o;
+	char ID[20];
+	//通过权限判定函数的返回值决定是否可以进行添加用户操作
+	if (judge(2) == 0) {
+		puts("!!!Insufficient permissions!!! ");
+		while ((getchar()) != '\n');
+		getchar();
+		//权限不够，退出函数
+		return;
+	}
+	//可以执行
+	system("clear");
+	puts("!!!    Add_user   !!! ");
+	//根据当前已有用户的行数判断，新建的用户id应为行数+1
+	sprintf(sql, "select id_ from users;");
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res); // 得到记录的行数
+	int i = iNum_rows + 1;//新用户id
+	//输入账户和密码
+	printf("    Name："); scanf("%s", ope.name);
+	printf("Password："); scanf("%s", ope.passwd);
+	//获取系统时间，作为创建时间
+	time_t temp;
+	struct tm* t;
+	time(&temp);
+	t = localtime(&temp);
+	sprintf(Time, "%d-%d-%d %d:%d:%d", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
+	//通过当前登录的用户名字获取用户id，作为创建者id使用 		
+	sprintf(sql, "select id_ from users where name_='%s';", login.name);
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res);
+	int iNum_fields = mysql_num_fields(g_res);
+	while ((g_row = mysql_fetch_row(g_res))) {
+		sprintf(ID, "%s", g_row[0]);
+	}
+	//备注		
+	printf("  Remark："); scanf("%s", ope.remark);
+	//向用户表中插入一个新的用户的信息
+	sprintf(sql, "insert into users values(%d,'%s','%s','%s',%s,'%s');", i, ope.name, ope.passwd, Time, ID, ope.remark);
+	executesql(sql);
+	//管理员用户设定权限
+	if (flag)
+	{
+		while (1) {
+			system("clear");
+			puts("!!!    ROLE   !!! ");
+			puts("!!! 1: USER   !!! ");
+			puts("!!! 2:OTHER   !!! ");
+			printf("Choice the Role of user %s：", ope.name); scanf("%d", &o);
+			switch (o) {
+			case 1:
+				sprintf(ope.role, "USER");
+				break;
+			case 2:
+				sprintf(ope.role, "OTHER");
+				break;
+			default:
+				puts("!!! enter right choice !!! ");
+				while ((getchar()) != '\n');
+				getchar();
+			}
+			break;
+		}
+		//通过角色名找到角色id
+		sprintf(sql, "select id_ from roles where name_='%s';", ope.role);
+		executesql(sql);
+		g_res = mysql_store_result(g_conn);
+		iNum_rows = mysql_num_rows(g_res);
+		iNum_fields = mysql_num_fields(g_res);
+		while ((g_row = mysql_fetch_row(g_res))) {
+			//将用户id和角色id写入用户角色表
+			sprintf(sql, "insert into userRole values(%d,%s);", i, g_row[0]);
+			executesql(sql);
+		}
+	}
+	//如果没有管理员权限，默认添加的用户角色为other
+	else {
+		sprintf(sql, "insert into userRole values(%d,3);", i);
+		executesql(sql);
+	}
+	flag = 0;//管理员权限开关
+	puts("!!! success !!! ");
+	while ((getchar()) != '\n');
+	getchar();
+}
+//删改函数
+void del_alt_msg()
+{
+	int o, op;
+	char p;
+	char ID[20];
+	//通过权限判定函数的返回值决定是否可以进行删改用户操作
+	if (judge(4) == 0) {
+		puts("!!!Insufficient permissions!!! ");
+		while ((getchar()) != '\n');
+		getchar();
+		//权限不够，退出函数
+		return;
+	}
+	//可以执行
+	system("clear");
+	puts("!!!     del_alt_msg  !!! ");
+	printf("    Name："); scanf("%s", ope.name);
+	printf("Password："); scanf("%s", ope.passwd);
+	//判断要进行删改的用户是不是管理员用户，禁止对管理员用户进行删改操作
+	if (strcmp(ope.name, "root") == 0)
+	{
+		puts("Administrator user deletion is prohibited");
+		while ((getchar()) != '\n');
+		getchar();
+		return;
+	}
+	//通过用户名和密码查看用户表中是否有该用户
+	sprintf(sql, "select id_ from users where name_='%s' and password_='%s';", ope.name, ope.passwd);
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res); // 得到记录的行数
+	int iNum_fields = mysql_num_fields(g_res);
+	//将该用户id取出来备用
+	while ((g_row = mysql_fetch_row(g_res))) {
+		sprintf(ID, "%s", g_row[0]);
+	}
+	//没有查到
+	if (iNum_rows == 0)
+	{
+		puts("No such person!");
+		puts("!!! enter right choice !!! ");
+		while ((getchar()) != '\n');
+		getchar();
+	}
+	//进入删改选择
+	else
+	{
+		system("clear");
+		puts("!!!    del_alt_msg    !!! ");
+		puts("!!!  1:change  name   !!! ");
+		puts("!!!  2:change passwd  !!! ");
+		puts("!!!  3:change  role   !!! ");
+		puts("!!!  4:change remark  !!! ");
+		puts("!!!  5:delete  user   !!! ");
+		printf("!!!      choice：     !"); scanf("%d", &o);
+		switch (o)
+		{
+		case 1:
+			system("clear");
+			puts("!!!    del_alt_msg    !!! ");
+			printf("!!!    enter name: "); scanf("%s", ope.name);
+			//更新用户名
+			sprintf(sql, "update users set name_='%s' where id_=%s;", ope.name, ID);
+			executesql(sql);
+			break;
+		case 2:
+			system("clear");
+			puts("!!!    del_alt_msg    !!! ");
+			printf("!!!    enter password: "); scanf("%s", ope.passwd);
+			//更新密码
+			sprintf(sql, "update users set password_='%s' where id_=%s;", ope.passwd, ID);
+			executesql(sql);
+			break;
+		case 3:
+			system("clear");
+			puts("!!!    del_alt_msg    !!! ");
+			puts("!!!      1.USER       !!! ");
+			puts("!!!      2.OTHER      !!! ");
+			printf("!!!      choice：     !"); scanf("%d", &op);
+			switch (op)
+			{
+			case 1:
+				//设置角色为用户
+				sprintf(sql, "update userRole set role_id_=2 where user_id_=%s;", ID);
+				executesql(sql);
+				break;
+			case 2:
+				//设置角色为其他人
+				sprintf(sql, "update userRole set role_id_=3 where user_id_=%s;", ID);
+				executesql(sql);
+				break;
+			default:
+				puts("!!! enter right choice !!! ");
+				while ((getchar()) != '\n');
+				getchar();
+			}
+			break;
+		case 4:
+			system("clear");
+			puts("!!!    del_alt_msg    !!! ");
+			printf("!!!    enter remark: "); scanf("%s", ope.remark);
+			//更新备注
+			sprintf(sql, "update users set remark_='%s' where id_=%s;", ope.remark, ID);
+			executesql(sql);
+			break;
+		case 5:
+			system("clear");
+			puts("!!!    del_alt_msg    !!! ");
+			printf("!!!    sure delete? (Y/N):"); scanf("%s", &p);
+			switch (p)
+			{
+			case 'Y':
+			case 'y':
+				//需要先删除用户角色表当中的信息，才可删除用户表中的信息
+				sprintf(sql, "delete from userRole where user_id_=%s;", ID);
+				executesql(sql);
+				sprintf(sql, "delete from users where id_=%s;", ID);
+				executesql(sql);
+				break;
+			case 'N':
+			case 'n':
+				return;
+			}
+			break;
+		default:
+			puts("!!! enter right choice !!! ");
+			while ((getchar()) != '\n');
+			getchar();
+		}
+		puts("!!! success !!! ");
+		mysql_free_result(g_res);
+		while ((getchar()) != '\n');
+		getchar();
+	}
+}
+//显示所有用户及用户角色函数
+void display()
+{
+	//通过权限判定函数的返回值决定是否可以进行显示所有用户操作，other用户不可使用此功能
+	if (judge(2) == 0) {
+		puts("!!!Insufficient permissions!!! ");
+		while ((getchar()) != '\n');
+		getchar();
+		//权限不够，退出函数
+		return;
+	}
+	//可以执行
+	//查询users表
+	sprintf(sql, "select * from users;");
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res); // 得到记录的行数
+	int iNum_fields = mysql_num_fields(g_res); // 得到记录的列数
+	system("clear");
+	puts("!!!      users table   !!! \n");
+	puts("id_  | name_ |password_| create_time_     |creator_id_ | remark_   ");
+	while ((g_row = mysql_fetch_row(g_res)))
+		printf("%s\t%s\t%s\t%s\t%s\t%s\n", g_row[0], g_row[1], g_row[2], g_row[3], g_row[4], g_row[5]);
+	//查询roles表
+	sprintf(sql, "select * from roles;");
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res); // 得到记录的行数
+	iNum_fields = mysql_num_fields(g_res); // 得到记录的列数
+	puts("\n\n!!!      roles table   !!! \n");
+	puts(" id_  | name_         | remark_      ");
+	while ((g_row = mysql_fetch_row(g_res)))
+		printf("%s\t%s\t\t%s\n", g_row[0], g_row[1], g_row[2]);
+	//查询userRole表
+	sprintf(sql, "select * from userRole;");
+	executesql(sql);
+	g_res = mysql_store_result(g_conn);
+	iNum_rows = mysql_num_rows(g_res); // 得到记录的行数
+	iNum_fields = mysql_num_fields(g_res); // 得到记录的列数
+	puts("\n\n!!!    userRole table  !!! \n");
+	puts(" user_id_ | role_id_ ");
+	while ((g_row = mysql_fetch_row(g_res)))
+		printf("\t%s\t%s\n", g_row[0], g_row[1]);
+	mysql_free_result(g_res);
+	while ((getchar()) != '\n');
+	getchar();
+}
+//操作菜单
+void menu()
+{
+	while (i)
+	{
+		int choice;
+		system("clear");
+		puts("!!!     choice：  !!! ");
+		puts("!!! 1:query   msg !!! ");
+		puts("!!! 2:  add  user !!! ");
+		puts("!!! 3:del|alt msg !!! ");
+		puts("!!! 4:display all !!! ");
+		puts("!!! 5:exit  login !!! ");
+		puts("!!! 0:exit system !!! ");
+		scanf("%d", &choice);
+		switch (choice)
+		{
+		case 1:
+			query_msg();//无需判断权限，所有角色均可使用此查询
+			break;
+		case 2:
+			add_msg();//添加用户操作
+			break;
+		case 3:
+			del_alt_msg();//删改用户操作
+			break;
+		case 4:
+			display();//显示所有用户及用户角色
+			break;
+		case 5:
+			//退出登录
+			flag = 0;//管理员权限开关
+			return;
+		case 0:
+			puts("!!! thank you for using !!! ");//退出系统
+			i = 0;
+			break;
+		default:
+			puts("!!! enter right choice !!! ");
+			while ((getchar()) != '\n');
+			getchar();
+			break;
+		}
+	}
+}
+//主函数
+int main(void)
+{
+	while (i)
+	{
+		puts("!!!The system is initializing!!!");
+		//初始化链接
+		if (init_mysql())
+			print_mysql_error(NULL);
+		create_database();
+		create_table();
+		//初始化管理员账户
+		init_Administrtor();
+		//用户登录
+		user_login();
+		//操作菜单
+		menu();
+	}
+	// 关闭链接
+	mysql_close(g_conn);
+	return EXIT_SUCCESS;
+}
+#pragma once
