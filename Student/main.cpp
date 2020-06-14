@@ -5,6 +5,10 @@
 #define buf 1024
 #pragma comment( lib, "libmysql.lib")
 
+MYSQL_RES* res=NULL,*res2 = NULL;   //数据查询结果集
+MYSQL_FIELD* fd = NULL; //MySQL表头域类型
+MYSQL_ROW row;           //一个行数据的类型安全(type-safe)的表示
+
 //登陆页面
 int chooseUser(int &user)
 {
@@ -22,60 +26,207 @@ int chooseUser(int &user)
 }
 
 //账户登录
-int User(char* Sql, int user_A, MYSQL* conn)
+int User(char* Sql, int user_A, MYSQL* conn, int &user_B)
 {
+	int i;
 	MYSQL_RES* res = NULL;   //数据查询结果集
 	MYSQL_FIELD* fd = NULL; //MySQL表头域类型
-	MYSQL_ROW row;
-	int user_B;
+	//MYSQL_ROW row;
 	char psd_B[20];
 	printf("请输入你账号\n");
 	scanf_s("%d", &user_B, 20);
 	printf("请输入你的密码\n");
 	scanf_s("%s", psd_B, 20);
 	sprintf(Sql, "select * from student.StudentT where (id='%d') and (pwd='%s') and( power>='%d');",user_B,psd_B,user_A );
-	if (mysql_query(conn, Sql) == 0) {       //执行成功则把结果输出
+	i = mysql_query(conn, Sql);
+	res = mysql_store_result(conn);
+	if ((i== 0) && (mysql_num_rows(res) != 0)) {       //执行成功则把结果输出
+		
 		system("cls");
 		printf("登陆成功");
 		mysql_free_result(res); //释放结果集资源
 	}
 	else {
 		printf("登陆失败: %s\n", mysql_error(conn));
+		exit(0);
 		return 0;
 	}
 }
-/*
-int Show_self()
-int Show_Class()
-int Show_Stu()
-int Add_Stu() 
-int Del_Stu()
-int Change_Stu()
+
+int Show_self(int user_B, MYSQL* conn) { 
+
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	system("cls");
+	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='ScoreT' order by ORDINAL_POSITION;");
+	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+		res = mysql_store_result(conn);      //存储查询得到的结果集
+		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+				printf("%-10s|", row[3]);
+		}
+		printf("\n");
+		sprintf(Sql, "select * from student.ScoreT where (id='%d');", user_B);
+		if ((mysql_query(conn, Sql) == 0)){       //执行成功则把结果输出
+		res = mysql_store_result(conn);      //存储查询得到的结果集
+		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+			for (int i = 0; i < fieldNums; i++) {
+				printf("%-10s ", row[i]);
+			}
+			puts("");
+		}
+		mysql_free_result(res); //释放结果集资源
+		//打印获取的数据
+		}
+	}
+	else {
+		printf("查询失败: %s\n", mysql_error(conn));
+		return 0;
+	}
+	return 0;
+
+}
+
+int Show_Class( MYSQL* conn) {
+
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	system("cls");
+	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='ClassT' order by ORDINAL_POSITION;");
+	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+		res = mysql_store_result(conn);      //存储查询得到的结果集
+		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+			printf("%-10s|", row[3]);
+		}
+		printf("\n");
+		sprintf(Sql, "select * from student.ClassT" );
+		if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+			res = mysql_store_result(conn);      //存储查询得到的结果集
+			int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+			while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+				for (int i = 0; i < fieldNums; i++) {
+					printf("%-10s ", row[i]);
+				}
+				puts("");
+			}
+			mysql_free_result(res); //释放结果集资源
+			//打印获取的数据
+		}
+	}
+	else {
+		printf("查询失败: %s\n", mysql_error(conn));
+		return 0;
+	}
+}
+
+int Show_Stu(MYSQL* conn) {
+
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	system("cls");
+	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='StudentT' order by ORDINAL_POSITION;");
+	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+		res = mysql_store_result(conn);      //存储查询得到的结果集
+		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+			printf("%-10s|", row[3]);
+		}
+		printf("\n");
+		sprintf(Sql, "select * from student.StudentT");
+		if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+			res = mysql_store_result(conn);      //存储查询得到的结果集
+			int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+			while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+				for (int i = 0; i < fieldNums; i++) {
+					printf("%-10s ", row[i]);
+				}
+				puts("");
+			}
+			mysql_free_result(res); //释放结果集资源
+			//打印获取的数据
+		}
+	}
+	else {
+		printf("查询失败: %s\n", mysql_error(conn));
+		return 0;
+	}
+}
+
+int Add_Stu(MYSQL* conn)
+{
+	int choose;
+	char tableName[30];
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	int j=0;
+	char type[256];
+	system("cls");
+
+	printf("\n--------------------------------\n");
+	printf("|        1 插入课程信息        |\n");
+	printf("|        2 插入学生信息        |\n");
+	printf("|        3 插入成绩信息        |\n");
+	printf("|        4 退出界面            |\n");
+	printf("--------------------------------\n");
+
+	printf("--------------------------------\n");
+	printf("请输入你的选择：");
+	scanf_s("%d", &choose);
+	switch (choose)
+	{
+	case 1:  sprintf(tableName, "ClassT"); break;
+	case 2:  sprintf(tableName, "StudentT"); break;
+	case 3:  sprintf(tableName, "ScoreT"); break;
+	default:  break;
+	}
+
+	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='ClassT' order by ORDINAL_POSITION;");
+	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
+		res = mysql_store_result(conn);      //存储查询得到的结果集
+		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
+		j=sprintf(Sql, "insert into ClassT values(");
+		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+			printf("%-5s:", row[3]);
+			scanf_s("%s", type,256);
+			j += sprintf(Sql + j, "%s,",type);
+		}
+		sprintf(Sql + j-1, ");");
+		printf("%s", Sql);
+		system("cls");
+	}
+	if ((mysql_query(conn, Sql) != 0))
+	{
+	printf("添加失败: %s\n", mysql_error(conn));
+	return 0;
+	}
+}
+
+/*int Del_Stu();
+int Change_Stu();
 */
 //用户界面
-int win(int user_A)
+int win(int user_A,int user_B, MYSQL* conn, char*  server)
 {
 	int choose;
 	printf("\n--------------------------------\n");
-	printf("|        1 查询个人信息        |\n");
+	printf("|        1 显示个人信息        |\n");
 	printf("|        2 查询课程信息        |\n");
 	if (user_A == 2) {
 		printf("|        3 显示学生信息        |\n");
 		printf("|        4 添加学生信息        |\n");
 		printf("|        5 删除学生信息        |\n");
 		printf("|        6 修改学生信息        |\n");
-		printf("|        7 退出界面            |\n");
 	}
+		printf("|        7 退出界面            |\n");
+	
 	printf("--------------------------------\n");
 	printf("请输入你的选择：");
-/*	scanf_s("%d",&choose );
+	scanf_s("%d",&choose );
 	switch (choose)
 	{
-	case 1: Show_self(); break;
-	case 2: Show_Class(); break;
-	case 3: Show_Stu(); break;
-	case 4: Add_Stu(); break;
-	case 5: Change_Stu(); break;
+	case 1: Show_self(user_B,conn); break;
+	case 2: Show_Class(conn);break;
+	case 3: Show_Stu(conn); break;
+	case 4: Add_Stu(conn);break;
+	case 5:/* Change_Stu();*/ break;
 	case 6:
 	case 7:
 		{
@@ -84,7 +235,7 @@ int win(int user_A)
 		} break;
 	default:  break;
 	}
-*/
+
 	return 0;
 }
 
@@ -92,9 +243,9 @@ int main()
 {
 	char Sql[256] = "";  //将用来保存要执行的SQL语句
 	MYSQL* conn = NULL;      //MYSQL句柄类型(任何一个mysql操作都是基于MYSQL这个句柄来操作的)
-	MYSQL_RES* res = NULL;   //数据查询结果集
-	MYSQL_FIELD* fd = NULL; //MySQL表头域类型
-	MYSQL_ROW row;           //一个行数据的类型安全(type-safe)的表示
+	 res = NULL;   //数据查询结果集
+	 fd = NULL; //MySQL表头域类型
+
 	conn = mysql_init(NULL); //初始化MYSQL连接
 
 	char  server[20] = "39.106.76.148"; //mysql服务器的IP
@@ -104,7 +255,7 @@ int main()
 	unsigned short port = 3306;     //服务器端口号,默认3306
 
 	int user_A=0;
-
+	int id = 0;
 	//连接数据库
 	if (mysql_real_connect(conn, server, user, psd, dbName, port, NULL, 0) == 0) {
 		printf("Error connecting to database: %s\n", mysql_error(conn));
@@ -115,8 +266,11 @@ int main()
 	}
 	if(!chooseUser(user_A))
 		return 0;
-	User( Sql, user_A, conn);
-	win(user_A);
-
+	User( Sql, user_A, conn,id);
+	while (1)
+	{
+		win(user_A, id,conn,server);
+	}
+	mysql_close(conn); //关闭连接，即释放连接
 	return 0;
 }
