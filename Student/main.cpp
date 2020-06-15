@@ -123,27 +123,22 @@ int Show_Stu(MYSQL* conn) {
 
 	char Sql[256] = "";  //将用来保存要执行的SQL语句
 	system("cls");
-	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='StudentT' order by ORDINAL_POSITION;");
+
+	sprintf(Sql, "select a.id, a.name, c.No, c.name, b.Score from StudentT a, ScoreT b, ClassT c where(a.id = b.id) and (b.No = c.No)");
+	printf("Id         |Name     |No       |ClassName |Score\n");
 	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
 		res = mysql_store_result(conn);      //存储查询得到的结果集
 		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
 		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
-			printf("%-10s|", row[3]);
-		}
-		printf("\n");
-		sprintf(Sql, "select * from student.StudentT");
-		if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
-			res = mysql_store_result(conn);      //存储查询得到的结果集
-			int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
-			while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
+
 				for (int i = 0; i < fieldNums; i++) {
 					printf("%-10s ", row[i]);
 				}
 				puts("");
-			}
-			mysql_free_result(res); //释放结果集资源
-			//打印获取的数据
 		}
+		mysql_free_result(res); //释放结果集资源
+		//打印获取的数据
+		
 	}
 	else {
 		printf("查询失败: %s\n", mysql_error(conn));
@@ -175,22 +170,22 @@ int Add_Stu(MYSQL* conn)
 	case 1:  sprintf(tableName, "ClassT"); break;
 	case 2:  sprintf(tableName, "StudentT"); break;
 	case 3:  sprintf(tableName, "ScoreT"); break;
-	default:  break;
+	default:  return 0;
 	}
 
-	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='ClassT' order by ORDINAL_POSITION;");
+	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='%s' order by ORDINAL_POSITION;", tableName);
 	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
 		res = mysql_store_result(conn);      //存储查询得到的结果集
 		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
-		j=sprintf(Sql, "insert into ClassT values(");
+		j=sprintf(Sql, "insert into %s values(", tableName);
 		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
 			printf("%-5s:", row[3]);
 			scanf_s("%s", type,256);
-			j += sprintf(Sql + j, "%s,",type);
+			j += sprintf(Sql + j, "\'%s\',",type);
 		}
 		sprintf(Sql + j-1, ");");
 		printf("%s", Sql);
-		system("cls");
+		//system("cls");
 	}
 	if ((mysql_query(conn, Sql) != 0))
 	{
@@ -199,9 +194,88 @@ int Add_Stu(MYSQL* conn)
 	}
 }
 
-/*int Del_Stu();
-int Change_Stu();
-*/
+int Del_Stu(MYSQL* conn)
+{
+	int choose;
+	char tableName[30];
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	int j = 0;
+	char type[256];
+	system("cls");
+
+	printf("\n--------------------------------\n");
+	printf("|        1 删除课程信息        |\n");
+	printf("|        2 删除学生信息        |\n");
+	printf("|        3 退出界面            |\n");
+	printf("--------------------------------\n");
+
+	printf("--------------------------------\n");
+	printf("请输入你的选择：");
+	scanf_s("%d", &choose);
+	switch (choose)
+	{
+	case 1:  sprintf(tableName, "ClassT"); break;
+	case 2:  sprintf(tableName, "StudentT"); break;
+	default:  return 0;;
+	}
+	printf("请输入条件");
+	if (scanf_s("%s", type, 256))
+	{
+		sprintf(Sql, "delete from %s where %s", tableName, type);
+		if ((mysql_query(conn, Sql) != 0))
+		{
+			printf("删除失败: %s\n", mysql_error(conn));
+			return 0;
+		}
+		else
+			printf("删除成功");
+	}
+	return 0;
+}
+
+int Change_Stu(MYSQL* conn)
+{
+	int choose;
+	char tableName[30];
+	char Sql[256] = "";  //将用来保存要执行的SQL语句
+	int j = 0;
+	char type[256];
+	char type1[256];
+	system("cls");
+
+	printf("\n--------------------------------\n");
+	printf("|        1 修改课程信息        |\n");
+	printf("|        2 修改学生信息        |\n");
+	printf("|        3 退出界面            |\n");
+	printf("--------------------------------\n");
+
+	printf("--------------------------------\n");
+	printf("请输入你的选择：");
+	scanf_s("%d", &choose);
+	switch (choose)
+	{
+	case 1:  sprintf(tableName, "ClassT"); break;
+	case 2:  sprintf(tableName, "StudentT"); break;
+	default:  return 0;;
+	}
+	printf("请输入条件");
+	if (scanf_s("%s", type, 256))
+	{
+		printf("请输入更改内容:");
+		scanf_s("%s", type1, 256);
+		sprintf(Sql, "update %s set %s where %s ;", tableName, type1, type);
+		printf("%s", Sql);
+		if ((mysql_query(conn, Sql) != 0))
+		{
+			printf("修改失败: %s\n", mysql_error(conn));
+			return 0;
+		}
+		else
+			printf("修改成功");
+	}
+	return 0;
+}
+
 //用户界面
 int win(int user_A,int user_B, MYSQL* conn, char*  server)
 {
@@ -226,8 +300,8 @@ int win(int user_A,int user_B, MYSQL* conn, char*  server)
 	case 2: Show_Class(conn);break;
 	case 3: Show_Stu(conn); break;
 	case 4: Add_Stu(conn);break;
-	case 5:/* Change_Stu();*/ break;
-	case 6:
+	case 5:	Del_Stu(conn); break;
+	case 6: Change_Stu(conn); break;
 	case 7:
 		{
 			system("cls");  //先清屏，再退出
@@ -274,3 +348,5 @@ int main()
 	mysql_close(conn); //关闭连接，即释放连接
 	return 0;
 }
+
+
