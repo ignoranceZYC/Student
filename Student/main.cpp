@@ -57,16 +57,10 @@ int Show_self(int user_B, MYSQL* conn) {
 
 	char Sql[256] = "";  //将用来保存要执行的SQL语句
 	system("cls");
-	sprintf(Sql, "SELECT* FROM information_schema.`COLUMNS` where TABLE_SCHEMA='student' and TABLE_NAME='ScoreT' order by ORDINAL_POSITION;");
-	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
-		res = mysql_store_result(conn);      //存储查询得到的结果集
-		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
-		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
-				printf("%-10s|", row[3]);
-		}
-		printf("\n");
-		sprintf(Sql, "select * from student.ScoreT where (id='%d');", user_B);
-		if ((mysql_query(conn, Sql) == 0)){       //执行成功则把结果输出
+	printf("Id         |Name     |No       |ClassName r|Score\n");
+
+	sprintf(Sql, "select a.id, a.name, c.No, c.name, b.Score from StudentT a, ScoreT b, ClassT c where(a.id = b.id='%d') and (b.No = c.No);", user_B);
+	if ((mysql_query(conn, Sql) == 0)){       //执行成功则把结果输出
 		res = mysql_store_result(conn);      //存储查询得到的结果集
 		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
 		while ((row = mysql_fetch_row(res)) != NULL) { //不断获取下一组结果
@@ -77,7 +71,7 @@ int Show_self(int user_B, MYSQL* conn) {
 		}
 		mysql_free_result(res); //释放结果集资源
 		//打印获取的数据
-		}
+		
 	}
 	else {
 		printf("查询失败: %s\n", mysql_error(conn));
@@ -125,7 +119,7 @@ int Show_Stu(MYSQL* conn) {
 	system("cls");
 
 	sprintf(Sql, "select a.id, a.name, c.No, c.name, b.Score from StudentT a, ScoreT b, ClassT c where(a.id = b.id) and (b.No = c.No)");
-	printf("Id         |Name     |No       |ClassName |Score\n");
+	printf("Id         |Name     |No       |ClassName r|Score\n");
 	if ((mysql_query(conn, Sql) == 0)) {       //执行成功则把结果输出
 		res = mysql_store_result(conn);      //存储查询得到的结果集
 		int fieldNums = mysql_num_fields(res); //获取数据结果每条记录的列数
